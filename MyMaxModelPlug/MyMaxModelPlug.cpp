@@ -284,6 +284,10 @@ bool MyMaxModelPlug::ExportBones() {
 	boneFile << "Frame Interval: " << m_ModelHead.frameInterval << endl;
 	boneFile << "Frame Number: " << m_ModelHead.frameNum << endl;
 
+//#define OUTPUT_FORMAT_ROW_BONE_COLUMN_FRAME
+
+#ifdef OUTPUT_FORMAT_ROW_BONE_COLUMN_FRAME
+	// 按照行坐标-骨骼，列坐标-帧的格式输出
 	vector<MaxBone>::iterator boneIterator = m_Bones.begin();
 	int boneID = 0;
 	while (boneIterator != m_Bones.end()) {
@@ -303,19 +307,48 @@ bool MyMaxModelPlug::ExportBones() {
 		boneIterator++;
 		++boneID;
 	}
+#else
+	// 按照行坐标-帧，列坐标-骨骼的格式输出
+	for (int frameIndex = 0; frameIndex < m_ModelHead.frameNum; ++frameIndex) {
+		boneFile << "Frame-" << frameIndex << ":" << endl;
 
+		vector<MaxBone>::iterator boneIterator = m_Bones.begin();
+		while (boneIterator != m_Bones.end()) {
+			for (int i = 0; i < 4; ++i) {
+				Point4 row = (*boneIterator).frameMatrixs[frameIndex].GetRow(i);
+
+				boneFile << row.x << " " << row.y << " " << row.z << " " << row.w << endl;
+			}
+			boneFile << "======" << endl;
+
+			boneIterator++;
+		}
+
+		boneFile << endl;
+	}
+#endif
 
 	// ************************* 写入二进制文件 *************************
 	ofstream modelFile;
 	modelFile.open(m_ModelFileName.c_str(), ios::out | ios::binary);
 
 	modelFile.write((char*)&m_ModelHead, sizeof(MaxModelHead));
-	//float* boneData = new float[4 * 4 * m_ModelHead.frameNum * m_ModelHead.boneNum];
+
+#ifdef OUTPUT_FORMAT_ROW_BONE_COLUMN_FRAME
+	// 按照行坐标-骨骼，列坐标-帧的格式输出
 	for (int boneIndex = 0; boneIndex < m_ModelHead.boneNum; ++boneIndex) {
 		for (int frameIndex = 0; frameIndex < m_ModelHead.frameNum; ++frameIndex) {
-			modelFile.write((char*)m_Bones[boneIndex].frameMatrixs[frameIndex].GetAddr(), sizeof(float) * 4 * 4);
+			modelFile.write((char*)m_Bones[boneIndex].frameMatrixs[frameIndex].GetAddr(), sizeof(float)* 4 * 4);
 		}
 	}
+#else
+	// 按照行坐标-帧，列坐标-骨骼的格式输出
+	for (int frameIndex = 0; frameIndex < m_ModelHead.frameNum; ++frameIndex) {
+		for (int boneIndex = 0; boneIndex < m_ModelHead.boneNum; ++boneIndex) {
+			modelFile.write((char*)m_Bones[boneIndex].frameMatrixs[frameIndex].GetAddr(), sizeof(float)* 4 * 4);
+		}
+	}
+#endif
 
 	modelFile.close();
 
